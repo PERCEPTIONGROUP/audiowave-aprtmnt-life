@@ -174,12 +174,14 @@ canvas{display:block;width:100%}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 </style>
+<script>window.BYTES = {"1":197091538,"2":217340775,"5":196400477,"3":215245494,"4":223102597,"6":194994653,"7":195018172,"8":195855076,"9":186373022,"10":187160787,"11":193028538,"12":186862882,"13":200480233,"18":199817540,"14":194054988,"15":195039061,"16":207726648,"17":208450680,"20":191982203,"19":196006573,"33":188220655,"21":189495685,"22":187960273,"23":190119830,"24":188819437,"25":191444053,"27":213338869,"26":184509197,"28":203464914,"29":207387302,"31":194975302,"30":192062460,"32":186141496,"35":188699977,"34":198286120,"36":200593211,"37":201600315,"38":206324433,"39":185480812,"40":192047027,"41":206600584,"44":195465444,"42":197803476,"43":206528949,"45":206654079,"46":211736547};</script>
 <script>window.LBL = {"1": "Songwissel", "2": "Drop 3", "3": "Drop 4", "4": "Songwissel", "5": "Drop 5", "6": "Drop 6", "7": "Songwissel", "8": "Songwissel", "9": "Songwissel", "10": "Songwissel", "11": "Songwissel", "12": "Songwissel", "13": "Songwissel", "14": "Drop 7", "15": "Drop 8", "16": "Songwissel", "17": "Songwissel", "18": "Drop 9", "19": "Drop 10", "20": "Songwissel", "21": "Drop 11", "22": "Songwissel", "23": "Drop 12", "24": "Drop 13", "25": "Songwissel", "26": "Songwissel", "27": "Songwissel", "28": "Drop 14", "29": "Songwissel", "30": "Songwissel", "31": "Songwissel", "32": "Songwissel", "33": "Drop 15", "34": "Songwissel", "35": "Songwissel", "36": "Drop 16", "37": "Songwissel", "38": "Drop 17", "39": "Drop 18", "40": "Drop 19", "41": "Drop 20", "42": "Songwissel", "43": "Drop 21", "44": "Drop 22", "45": "Songwissel", "46": "Drop 23"};</script>
 <style>
 .brand{display:flex;align-items:center;gap:12px;margin-bottom:18px;color:var(--mut);font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
 .brand img{height:22px;width:auto;display:block;opacity:.95}
 .brand .x{opacity:.6}
-.lbframe video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:1}
+.lbmedia video{display:block;height:min(calc(100vh - 150px),calc((100vw - 24px) * 16 / 9));height:min(calc(100dvh - 150px),calc((100vw - 24px) * 16 / 9));width:auto;max-width:100%;aspect-ratio:var(--ar,9/16);object-fit:contain;border-radius:16px;background:#000}
+@media (min-width:860px){.lbmedia video{height:min(78vh,720px)}}
 .lbframe .lbnav{z-index:2}
 .foot img{height:14px;vertical-align:-2px;margin-left:6px;opacity:.8}
 </style>
@@ -232,7 +234,7 @@ canvas{display:block;width:100%}
     <div class="lbmedia" id="lbmedia">
       <div class="lbframe">
         <img id="lbimg" alt="">
-        <video id="lbvid" playsinline controls preload="metadata" hidden></video>
+        <video id="lbvid" playsinline controls preload="auto" hidden></video>
         <div class="lbph" id="lbph"></div>
         <button class="lbnav l" id="lbprev" aria-label="Vorige drop"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 6-6 6 6 6"/></svg></button>
         <button class="lbnav r" id="lbnext" aria-label="Volgende drop"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6 6 6-6 6"/></svg></button>
@@ -617,6 +619,8 @@ function renderLb(c) {
   $('lbtitle').textContent = c.title; $('lbtitle').className = c.known ? '' : 'unk';
   $('lbart').textContent = c.artists; $('lbart').hidden = !c.artists;
   $('lbtime').textContent = fmt(c.time); $('lbbpm').textContent = c.bpm || '–'; $('lbdur').textContent = fmt(c.dur);
+  if (!c.download && rawLink(c.view)) c.download = c.view.replace(/([?&])dl=0/, '$1dl=1');
+  if (!c.bytes && window.BYTES) c.bytes = window.BYTES[c.n];
   var dl = $('lbdl'), view = $('lbview');
   if (c.download) { dl.href = c.download; dl.removeAttribute('aria-disabled'); $('lbdltxt').innerHTML = ''; $('lbdltxt').appendChild(document.createTextNode('Download ')); if (c.bytes) $('lbdltxt').appendChild(el('small', null, mb(c.bytes))); }
   else if (c.view) { dl.href = c.view; dl.removeAttribute('aria-disabled'); $('lbdltxt').textContent = 'Download via Dropbox'; }
@@ -640,10 +644,16 @@ function rawLink(u) {
 }
 function openClip(c, push) {
   renderLb(c);
-  var v0 = $('lbvid'); if (!v0.hidden) { try { $('au').pause(); } catch (e) {} var pr = v0.play(); if (pr && pr.catch) pr.catch(function () {}); }
+  playLb();
   if (!lb.open) { if (lb.showModal) lb.showModal(); else lb.setAttribute('open', ''); document.documentElement.style.overflow = 'hidden'; }
   var h = '#drop-' + c.n;
   if (location.hash !== h) { if (push) { history.pushState(null, '', h); navOpened = true; } else history.replaceState(null, '', h); }
+}
+function playLb() {
+  var v = $('lbvid'); if (v.hidden) return;
+  try { $('au').pause(); } catch (e) {}
+  var pr = v.play();
+  if (pr && pr.catch) pr.catch(function (e) { if (e && e.name === 'NotAllowedError') { v.muted = true; var p2 = v.play(); if (p2 && p2.catch) p2.catch(function () {}); } });
 }
 function closeLb(fromHistory) {
   if (!lb.open) return;
@@ -654,7 +664,7 @@ function closeLb(fromHistory) {
   else navOpened = false;
   if (cur && cards[cur.n]) { try { cards[cur.n].focus({ preventScroll: true }); } catch (e) {} }
 }
-function lbStep(d) { var list = lbList(), i = list.indexOf(cur); var o = list[i + d]; if (o) { renderLb(o); history.replaceState(null, '', '#drop-' + o.n); } }
+function lbStep(d) { var list = lbList(), i = list.indexOf(cur); var o = list[i + d]; if (o) { renderLb(o); playLb(); history.replaceState(null, '', '#drop-' + o.n); } }
 grid.addEventListener('click', function (e) {
   var a = e.target.closest && e.target.closest('a.card'); if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
   e.preventDefault(); var n = +a.getAttribute('href').replace('#drop-', ''); if (byN[n]) openClip(byN[n], true);
@@ -666,7 +676,10 @@ $('lbplay').onclick = function () { var c = cur; closeLb(false); if (c) go(c, tr
 lb.addEventListener('cancel', function (e) { e.preventDefault(); closeLb(false); });
 lb.addEventListener('click', function (e) { if (e.target === lb) closeLb(false); });
 var sw = null;
-$('lbmedia').addEventListener('pointerdown', function (e) { sw = { x: e.clientX, y: e.clientY }; });
+$('lbmedia').addEventListener('pointerdown', function (e) {
+  if (e.target && e.target.tagName === 'VIDEO') { var r = e.target.getBoundingClientRect(); if (e.pointerType === 'mouse' || e.clientY > r.bottom - 90) { sw = null; return; } }
+  sw = { x: e.clientX, y: e.clientY };
+});
 $('lbmedia').addEventListener('pointerup', function (e) { if (!sw) return; var dx = e.clientX - sw.x, dy = e.clientY - sw.y; sw = null; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) lbStep(dx < 0 ? 1 : -1); });
 function fromHash() {
   var m = /^#drop-(\d+)$/.exec(location.hash), c = m && byN[+m[1]];
@@ -681,6 +694,7 @@ document.addEventListener('keydown', function (e) {
   if (lb.open) {
     if (e.key === 'ArrowLeft') { lbStep(-1); e.preventDefault(); }
     else if (e.key === 'ArrowRight') { lbStep(1); e.preventDefault(); }
+    else if (e.key === ' ' && tag !== 'BUTTON' && tag !== 'A' && tag !== 'VIDEO') { var lv = $('lbvid'); if (!lv.hidden) { if (lv.paused) playLb(); else lv.pause(); e.preventDefault(); } }
     return;
   }
   if (e.key === ' ' && tag !== 'BUTTON' && tag !== 'A') { toggle(); e.preventDefault(); }
